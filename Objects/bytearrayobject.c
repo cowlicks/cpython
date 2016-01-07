@@ -244,6 +244,53 @@ PyByteArray_Resize(PyObject *self, Py_ssize_t requested_size)
 }
 
 PyObject *
+PyByteArray_Xor(PyObject *a, PyObject *b)
+{
+    Py_ssize_t size = PyByteArray_Size(a);
+    Py_buffer va, vb;
+    PyByteArrayObject *result = NULL;
+
+    char *raw_a = (char *) malloc(size + 1);
+    char *raw_b = (char *) malloc(size + 1);
+    char *raw_out = (char *) malloc(size);
+    int i;
+
+    /* checks */
+    va.len = -1;
+    vb.len = -1;
+    if (PyObject_GetBuffer(a, &va, PyBUF_SIMPLE) != 0 ||
+        PyObject_GetBuffer(b, &vb, PyBUF_SIMPLE) != 0) {
+            PyErr_Format(PyExc_TypeError, "can't xor %.100s and %.100s",
+                         Py_TYPE(a)->tp_name, Py_TYPE(b)->tp_name);
+
+            free(raw_out);
+            goto done;
+    }
+
+    if (PyByteArray_Size(a) !=  PyByteArray_Size(b)) {
+        PyErr_SetString(PyExc_ValueError, "ByteArrays are not the same size.");
+
+        free(raw_out);
+        goto done;
+    }
+
+
+    raw_a = PyByteArray_AsString(a);
+    raw_b = PyByteArray_AsString(b);
+    for (i = 0; i < size; i++) {
+        raw_out[i] = raw_a[i] ^ raw_b[i];
+    }
+    result = (PyByteArrayObject *) PyByteArray_FromStringAndSize(raw_out, size);
+
+  done:
+    if (va.len != -1)
+        PyBuffer_Release(&va);
+    if (vb.len != -1)
+        PyBuffer_Release(&vb);
+    return (PyObject *)result;
+}
+
+PyObject *
 PyByteArray_Concat(PyObject *a, PyObject *b)
 {
     Py_ssize_t size;
