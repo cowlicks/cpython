@@ -244,10 +244,9 @@ PyByteArray_Resize(PyObject *self, Py_ssize_t requested_size)
 }
 
 PyObject *
-PyByteArray_Xor(PyObject *a, PyObject *b)
+PyByteArray_BinaryBitwiseOp(char op, PyObject *a, PyObject *b)
 {
     Py_ssize_t size = PyByteArray_Size(a);
-    Py_buffer va, vb;
     PyByteArrayObject *result = NULL;
 
     char *raw_a = (char *) malloc(size + 1);
@@ -256,12 +255,9 @@ PyByteArray_Xor(PyObject *a, PyObject *b)
     int i;
 
     /* checks */
-    va.len = -1;
-    vb.len = -1;
-    if (PyObject_GetBuffer(a, &va, PyBUF_SIMPLE) != 0 ||
-        PyObject_GetBuffer(b, &vb, PyBUF_SIMPLE) != 0) {
-            PyErr_Format(PyExc_TypeError, "can't xor %.100s and %.100s",
-                         Py_TYPE(a)->tp_name, Py_TYPE(b)->tp_name);
+    if (PyByteArray_Check(a) != 1 || PyByteArray_Check(b) != 1) {
+            PyErr_Format(PyExc_TypeError, "can't \"%c\" %.100s and %.100s",
+                         op, Py_TYPE(a)->tp_name, Py_TYPE(b)->tp_name);
 
             free(raw_out);
             goto done;
@@ -277,17 +273,47 @@ PyByteArray_Xor(PyObject *a, PyObject *b)
 
     raw_a = PyByteArray_AsString(a);
     raw_b = PyByteArray_AsString(b);
-    for (i = 0; i < size; i++) {
-        raw_out[i] = raw_a[i] ^ raw_b[i];
+
+    switch (op) {
+            case '^':
+                for (i = 0; i < size; i++) {
+                    raw_out[i] = raw_a[i] ^ raw_b[i];
+                }
+                break;
+            case '&':
+                for (i = 0; i < size; i++) {
+                    raw_out[i] = raw_a[i] & raw_b[i];
+                }
+                break;
+            case '|':
+                for (i = 0; i < size; i++) {
+                    raw_out[i] = raw_a[i] | raw_b[i];
+                }
+                break;
     }
+
     result = (PyByteArrayObject *) PyByteArray_FromStringAndSize(raw_out, size);
 
   done:
-    if (va.len != -1)
-        PyBuffer_Release(&va);
-    if (vb.len != -1)
-        PyBuffer_Release(&vb);
     return (PyObject *)result;
+}
+
+PyObject *
+PyByteArray_Xor(PyObject *a, PyObject *b)
+{
+    return PyByteArray_BinaryBitwiseOp('^', a, b);
+}
+
+PyObject *
+PyByteArray_And(PyObject *a, PyObject *b)
+{
+    return PyByteArray_BinaryBitwiseOp('&', a, b);
+}
+
+PyObject *
+PyByteArray_Or(PyObject *a, PyObject *b)
+{
+    return PyByteArray_BinaryBitwiseOp('|', a, b);
 }
 
 PyObject *
@@ -3068,8 +3094,9 @@ static PyNumberMethods bytearray_as_number = {
     0,                /* nb_invert */
     0,                /* nb_lshift */
     0,                /* nb_rshift */
-    0,                /* nb_and */
+    PyByteArray_And,  /* nb_and */
     PyByteArray_Xor,  /* nb_xor */
+    PyByteArray_Or,   /* nb_or */
 
 };
 
