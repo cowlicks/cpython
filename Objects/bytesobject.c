@@ -1383,6 +1383,73 @@ bytes_length(PyBytesObject *a)
     return Py_SIZE(a);
 }
 
+static PyObject *
+bytes_binary_bitwise(char op, PyObject *a, PyObject *b)
+{
+    Py_ssize_t size, i;
+    PyBytesObject *result = NULL;
+    
+    char *raw_a;
+    char *raw_b;
+
+    /* checks */
+    if (PyBytes_Check(a) != 1 || PyBytes_Check(b) != 1) {
+            PyErr_Format(PyExc_TypeError, "can't \"%c\" %.100s and %.100s",
+                         op, Py_TYPE(a)->tp_name, Py_TYPE(b)->tp_name);
+            goto done;
+    }
+
+    if (PyBytes_Size(a) !=  PyBytes_Size(b)) {
+        PyErr_SetString(PyExc_ValueError, "Bytes are not the same size.");
+        goto done;
+    }
+
+    size = PyBytes_GET_SIZE(a);
+    result = (PyBytesObject *) PyBytes_FromStringAndSize(NULL, size);
+
+    raw_a = PyBytes_AsString(a);
+    raw_b = PyBytes_AsString(b);
+
+    switch (op) {
+            case '^':
+                for (i = 0; i < size; i++) {
+                    result->ob_sval[i] = raw_a[i] ^ raw_b[i];
+                }
+                break;
+            case '&':
+                for (i = 0; i < size; i++) {
+                    result->ob_sval[i] = raw_a[i] & raw_b[i];
+                }
+                break;
+            case '|':
+                for (i = 0; i < size; i++) {
+                    result->ob_sval[i] = raw_a[i] | raw_b[i];
+                }
+                break;
+    }
+
+    done:
+        return (PyObject *)result;
+}
+
+static PyObject *
+bytes_xor(PyObject *a, PyObject *b)
+{
+    return bytes_binary_bitwise('^', a, b);
+}
+
+static PyObject *
+bytes_and(PyObject *a, PyObject *b)
+{
+    return bytes_binary_bitwise('&', a, b);
+}
+
+static PyObject *
+bytes_or(PyObject *a, PyObject *b)
+{
+    return bytes_binary_bitwise('|', a, b);
+}
+
 /* This is also used by PyBytes_Concat() */
 static PyObject *
 bytes_concat(PyObject *a, PyObject *b)
@@ -3288,6 +3355,18 @@ static PyNumberMethods bytes_as_number = {
     0,              /*nb_subtract*/
     0,              /*nb_multiply*/
     bytes_mod,      /*nb_remainder*/
+    0,              /* nb_divmod */
+    0,              /* nb_power */
+    0,              /* nb_negative */
+    0,              /* nb_positive */
+    0,              /* nb_absolute */
+    0,              /* nb_bool */
+    0,              /* nb_invert */
+    0,              /* nb_lshift */
+    0,              /* nb_rshift */
+    bytes_and,  /* nb_and */
+    bytes_xor,  /* nb_xor */
+    bytes_or,   /* nb_or */
 };
 
 static PyObject *
