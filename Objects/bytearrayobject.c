@@ -286,6 +286,9 @@ bytearray_binary_bitwise(char op, PyObject *a, PyObject *b)
                     result->ob_bytes[i] = raw_a[i] | raw_b[i];
                 }
                 break;
+            default:
+                PyErr_BadInternalCall();
+
     }
 
   done:
